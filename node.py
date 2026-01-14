@@ -2,6 +2,7 @@ import pygame
 
 flags = {
     'unchecked': 'white',
+    'checking': 'blue',
     'open': 'green',
     'closed': 'red',
     'barrier': 'black',
@@ -57,7 +58,3 @@ class Node:
             col, row = self.col + neighbour[0], self.row + neighbour[1]
             if grid.within_bounds(col, row) and not grid[col][row].is_state('barrier'):
                 self.neighbours.append([grid[col][row], grid.diagonal_weight])
-
-    # comparing nodes
-    def __lt__(self, other):
-        return False

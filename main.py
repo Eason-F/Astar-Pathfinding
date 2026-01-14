@@ -1,9 +1,9 @@
 import pygame
 
-import math
 from queue import PriorityQueue
 
 from grid import Grid
+from slider import Slider
 
 class Main:
     def __init__(self, win_width):
@@ -17,8 +17,9 @@ class Main:
         self.clock = pygame.time.Clock()
         self.tick_rate = 240
 
-        # font for debugging displays
+        # debug
         self.font = pygame.font.SysFont('arial', 20)
+        self.slider = Slider((200, 30), 200, (0, 240), default_value=60)
 
         # initialise grid
         self.width = win_width
@@ -40,8 +41,8 @@ class Main:
         self.started = False
         self.running = True
 
-    def debug(self, y, *args):
-        self.window.blit(self.font.render(', '.join(map(str,args)), True, 'red'), (10, y * 20))
+    def debug(self, y, heading, *args):
+        self.window.blit(self.font.render(heading + ': ' + ', '.join(map(str,args)), True, 'red'), (10, y * 20))
 
     def edit_grid(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -136,14 +137,22 @@ class Main:
             # visually display algorithm
             self.grid.draw(self.window)
             if self.start:
-                self.debug(1, self.start.col, self.start.row)
+                self.debug(1, 'Start', self.start.col, self.start.row)
             if self.end:
-                self.debug(2, self.end.col, self.end.row)
+                self.debug(2, 'End', self.end.col, self.end.row)
 
-            self.debug(3, len(self.open_set_hash))
+            self.debug(3, 'Frame Rate', self.slider.value)
+
+            self.slider.update()
+            self.slider.draw(self.window)
 
             pygame.display.flip()
-            self.clock.tick(self.tick_rate)
+
+            if self.started:
+                self.tick_rate = self.slider.value
+                self.clock.tick(self.tick_rate)
+            else:
+                self.clock.tick(60)
 
         pygame.quit()
 
