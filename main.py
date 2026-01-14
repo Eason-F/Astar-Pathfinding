@@ -6,32 +6,42 @@ from queue import PriorityQueue
 from grid import Grid
 
 class Main:
-    def __init__(self, width):
+    def __init__(self, win_width):
         pygame.init()
-        self.window = pygame.display.set_mode((width, width))
+
+        # initialise window
+        self.window = pygame.display.set_mode((win_width, win_width))
         pygame.display.set_caption("A* Pathfinding")
 
+        # timing and clock
+        self.clock = pygame.time.Clock()
+        self.tick_rate = 240
+
+        # font for debugging displays
         self.font = pygame.font.SysFont('arial', 20)
 
-        self.width = width
+        # initialise grid
+        self.width = win_width
         self.grid = Grid(50, 50, self.width)
 
+        # algorithm related
+        self.set_index = 0
         self.open_set = PriorityQueue()
-        self.open_set_hash = {}
+        self.open_set_hash = set() # set to keep track of contents of open set
         self.traced_path = {}
 
+        self.path_found = False
+
+        # significant nodes
         self.start = None
         self.end = None
-        self.is_started = False
 
+        # run loop
+        self.started = False
         self.running = True
 
     def debug(self, y, *args):
         self.window.blit(self.font.render(', '.join(map(str,args)), True, 'red'), (10, y * 20))
-
-    @staticmethod
-    def heuristic(node1, node2):
-        return math.dist((node1.col, node1.row), (node2.col, node2.row))
 
     def edit_grid(self):
         mouse_pos = pygame.mouse.get_pos()
@@ -44,7 +54,7 @@ class Main:
                 elif not self.end and node != self.start:
                     self.end = node
                     self.end.set_state('destination')
-                elif node.flag == 'open':
+                elif node.flag == 'unchecked':
                     node.set_state('barrier')
 
             elif pygame.mouse.get_pressed()[2]:  # right click
@@ -56,59 +66,88 @@ class Main:
 
     # a* algorithm
     def initiate_search(self):
-        self.is_started = True
-        self.grid.update()
+        self.started = True
+        self.grid.update_neighbours()
+        self.grid.update_heuristics(self.end)
 
+        self.set_index = 0
         self.open_set = PriorityQueue()
-        self.open_set.put((0, self.start)) # item in queue in format (f-score, node)
-        self.open_set_hash[self.start] = self.start
+        self.open_set.put((0, self.set_index, self.start)) # item in queue in format (f-score, index, node)
+        self.open_set_hash = {self.start}
         self.traced_path = {}
 
-        # equivalent to just being: f-score = heuristic
-        self.start.g_score = 0
-        self.start.h_score = self.heuristic(self.start, self.end)
-        self.start.f_score = self.start.g_score + self.start.h_score
+        self.start.g = 0
+        self.start.f = self.start.g + self.start.h
 
     def algorithm(self):
-        q = self.open_set.get()
-        for adjacent in q.neighbours:
-            if adjacent == self.end:
-                break # end search
-            else:
-                adjacent.h_score = self.heuristic(adjacent, self.end)
-                adjacent.g_score = q.g_score + adjacent.
+        f_score, index, node = self.open_set.get()
+        self.open_set_hash.remove(node)
+        if node == self.end:
+            self.started = False
+            self.path_found = True
 
+        for neighbour, weight in node.neighbours: # iterate through neighbours
+            g_score = node.g + weight # temporarily assign a g_score to neighbour
+            if g_score < neighbour.g: # check if new path is shorter
+                neighbour.g = node.g + weight # update g_score
+                neighbour.f = neighbour.g + neighbour.h
+                self.traced_path[neighbour] = node # update path
+
+                if neighbour not in self.open_set_hash: # if neighbour not in open set
+                    self.set_index += 1
+                    self.open_set.put((neighbour.f, self.set_index, neighbour))
+                    self.open_set_hash.add(neighbour)
+                    neighbour.set_state('open') if neighbour != self.end else neighbour.set_state('destination')
+
+        if node != self.start and node != self.end:
+            node.set_state('closed')
+
+    def reconstruct_path(self):
+        node = self.end
+        while node in self.traced_path:
+            node = self.traced_path[node]
+            node.set_state('path') if node != self.start else node.set_state('origin')
 
     def run(self):
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                elif self.is_started:
+                elif self.started:
                     continue
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
+                    if event.key == pygame.K_SPACE and self.start and self.end:
                         self.initiate_search()
+                    elif event.key == pygame.K_e and not self.started:
+                        self.grid = Grid(50, 50, self.width)
+                        self.start = None
+                        self.end = None
 
-            if self.is_started and self.open_set.empty():
-                self.is_started = False
-
-            if not self.is_started:
+            if not self.started: # edit grid while algorithm is not running
                 self.edit_grid()
-            else:
+            elif not self.open_set.empty(): # run algorithm while open set is not empty
                 self.algorithm()
+            else: # case where path is not found
+                self.path_found = False
 
+            if self.path_found:
+                self.reconstruct_path()
+
+            # visually display algorithm
             self.grid.draw(self.window)
             if self.start:
-                self.debug(1, self.start.x, self.start.y)
+                self.debug(1, self.start.col, self.start.row)
             if self.end:
-                self.debug(2, self.end.x, self.end.y)
+                self.debug(2, self.end.col, self.end.row)
+
+            self.debug(3, len(self.open_set_hash))
 
             pygame.display.flip()
+            self.clock.tick(self.tick_rate)
 
         pygame.quit()
 
 if __name__ == "__main__":
-    main = Main(800)
+    main = Main(win_width = 800)
     main.run()
 

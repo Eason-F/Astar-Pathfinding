@@ -1,11 +1,13 @@
 import pygame
 
 flags = {
-    'open': 'white',
+    'unchecked': 'white',
+    'open': 'green',
     'closed': 'red',
     'barrier': 'black',
     'origin': 'orange',
-    'destination': 'aquamarine4'
+    'destination': 'aquamarine4',
+    'path': 'purple'
 }
 
 class Node:
@@ -17,18 +19,18 @@ class Node:
         self.total_rows = total_rows
 
         # positioning on 2D plane
-        self.x = row * self.width
-        self.y = col * self.width
+        self.x = col * self.width
+        self.y = row * self.width
 
         # node state
-        self.colour = flags['open']
-        self.flag = 'open'
+        self.colour = flags['unchecked']
+        self.flag = 'unchecked'
 
         # algorithm related
-        self.neighbours = []
-        self.g_score = float('inf')
-        self.h_score = float('inf')
-        self.f_score = self.g_score + self.h_score
+        self.neighbours = [] # 2D list of adjacent nodes with their respective weights
+        self.g = float('inf')
+        self.h = float('inf')
+        self.f = self.g + self.h
 
     # state management
     def is_state(self, state):
@@ -39,21 +41,22 @@ class Node:
         self.colour = flags[state]
 
     def reset_state(self):
-        self.set_state('open')
+        self.set_state('unchecked')
 
     def draw(self, surf):
         pygame.draw.rect(surf, self.colour, (self.x, self.y, self.width, self.width))
 
     def update_neighbours(self, grid):
         self.neighbours = []
-        if self.row > 0 and not grid[self.row - 1][self.col].is_state('barrier'): # check up
-            self.neighbours.append(grid[self.row - 1][self.col])
-        if self.row < self.total_rows - 1 and not grid[self.row + 1][self.col].is_state('barrier'): # check down
-            self.neighbours.append(grid[self.row + 1][self.col])
-        if self.col > 0 and not grid[self.row][self.col - 1].is_state('barrier'): # check left
-            self.neighbours.append(grid[self.row][self.col - 1])
-        if self.col < self.total_rows - 1 and not grid[self.row][self.col + 1].is_state('barrier'): # check right
-            self.neighbours.append(grid[self.row][self.col + 1])
+        for neighbour in grid.adjacent_neighbours:
+            col, row = self.col + neighbour[0], self.row + neighbour[1]
+            if grid.within_bounds(col, row) and not grid[col][row].is_state('barrier'):
+                self.neighbours.append([grid[col][row], 1]) # where second value is weight
+
+        for neighbour in grid.diagonal_neighbours:
+            col, row = self.col + neighbour[0], self.row + neighbour[1]
+            if grid.within_bounds(col, row) and not grid[col][row].is_state('barrier'):
+                self.neighbours.append([grid[col][row], grid.diagonal_weight])
 
     # comparing nodes
     def __lt__(self, other):
