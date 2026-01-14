@@ -19,7 +19,7 @@ class Main:
 
         # debug
         self.font = pygame.font.SysFont('arial', 20)
-        self.slider = Slider((200, 30), 200, (0, 240), default_value=60)
+        self.slider = Slider((200, 30), 200, (0, 240), default_value=0)
 
         # initialise grid
         self.width = win_width
@@ -29,6 +29,7 @@ class Main:
         self.set_index = 0
         self.open_set = PriorityQueue()
         self.open_set_hash = set() # set to keep track of contents of open set
+        self.closed_set = set()
         self.traced_path = {}
 
         self.path_found = False
@@ -83,11 +84,18 @@ class Main:
     def algorithm(self):
         f_score, index, node = self.open_set.get()
         self.open_set_hash.remove(node)
+        self.closed_set.add(node)
+        if node != self.start and node != self.end:
+            node.set_state('closed')
+
         if node == self.end:
             self.started = False
             self.path_found = True
 
         for neighbour, weight in node.neighbours: # iterate through neighbours
+            if neighbour in self.closed_set:
+                continue
+
             g_score = node.g + weight # temporarily assign a g_score to neighbour
             if g_score < neighbour.g: # check if new path is shorter
                 neighbour.g = node.g + weight # update g_score
@@ -99,9 +107,6 @@ class Main:
                     self.open_set.put((neighbour.f, self.set_index, neighbour))
                     self.open_set_hash.add(neighbour)
                     neighbour.set_state('open') if neighbour != self.end else neighbour.set_state('destination')
-
-        if node != self.start and node != self.end:
-            node.set_state('closed')
 
     def reconstruct_path(self):
         node = self.end
@@ -130,6 +135,7 @@ class Main:
                 self.algorithm()
             else: # case where path is not found
                 self.path_found = False
+                self.started = False
 
             if self.path_found:
                 self.reconstruct_path()
